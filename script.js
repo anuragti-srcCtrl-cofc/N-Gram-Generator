@@ -82,42 +82,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (seedPhrase) {
             const seedTokens = seedPhrase.trim().split(/\s+/);
+            output = [...seedTokens]; // Always ensure the seed phrase is in the output
             
-            // If seed has enough words for a history (n-1)
+            const seedStrLower = seedPhrase.trim().toLowerCase();
+            const lastWordLower = seedTokens[seedTokens.length - 1].toLowerCase();
+
+            // 1. Exact match of the last n-1 words (if seed is long enough)
             if (seedTokens.length >= n - 1) {
-                const targetHistory = seedTokens.slice(-(n - 1)).join(' ');
-                if (nGramMap.has(targetHistory)) {
-                    currentHistory = targetHistory;
-                    output = [...seedTokens];
+                const targetHistoryLower = seedTokens.slice(-(n - 1)).join(' ').toLowerCase();
+                const exactMatch = keys.find(k => k.toLowerCase() === targetHistoryLower);
+                if (exactMatch) {
+                    currentHistory = exactMatch;
                 }
             }
             
-            // Try to find a key that starts with the seed phrase
+            // 2. Prefix match on any key using the whole seed (if seed is short)
             if (!currentHistory) {
-                const seedStrLower = seedPhrase.trim().toLowerCase();
                 const matchingKeys = keys.filter(k => k.toLowerCase().startsWith(seedStrLower));
-                
                 if (matchingKeys.length > 0) {
                     currentHistory = matchingKeys[Math.floor(Math.random() * matchingKeys.length)];
-                    output = currentHistory.split(' ');
-                } else {
-                    // Try to find any key containing the seed phrase
-                    const containingKeys = keys.filter(k => k.toLowerCase().includes(seedStrLower));
-                    if (containingKeys.length > 0) {
-                        currentHistory = containingKeys[Math.floor(Math.random() * containingKeys.length)];
-                        output = currentHistory.split(' ');
+                    // Append the remainder of the matched history to the output to bridge the gap
+                    const keyTokens = currentHistory.split(' ');
+                    if (keyTokens.length > seedTokens.length) {
+                        output.push(...keyTokens.slice(seedTokens.length));
                     }
                 }
             }
+
+            // 3. Substring match: Find any key containing the last word of the seed
+            if (!currentHistory) {
+                const matchingKeys = keys.filter(k => k.toLowerCase().includes(lastWordLower));
+                if (matchingKeys.length > 0) {
+                    currentHistory = matchingKeys[Math.floor(Math.random() * matchingKeys.length)];
+                }
+            }
         }
 
-        // Fallback if no matching seed found or no seed provided
+        // 4. Ultimate fallback: Random history
         if (!currentHistory) {
             currentHistory = keys[Math.floor(Math.random() * keys.length)];
-            output = currentHistory.split(' ');
+            // If there was no seed phrase, initialize output with this random history
+            if (!seedPhrase) {
+                output = currentHistory.split(' ');
+            }
         }
 
-        for (let i = 0; i < maxWords - (n - 1); i++) {
+        // Generate remaining words
+        const wordsToGenerate = Math.max(0, maxWords - output.length);
+        
+        for (let i = 0; i < wordsToGenerate; i++) {
             const possibleNextWords = nGramMap.get(currentHistory);
             
             if (!possibleNextWords || possibleNextWords.length === 0) {
