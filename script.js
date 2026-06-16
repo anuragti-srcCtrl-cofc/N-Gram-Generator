@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nValueDisplay = document.getElementById('n-value-display');
     const outputLengthSlider = document.getElementById('output-length');
     const lengthDisplay = document.getElementById('length-display');
+    const seedPhraseInput = document.getElementById('seed-phrase');
     const generateBtn = document.getElementById('generate-btn');
     const outputBox = document.getElementById('output-box');
 
@@ -21,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const corpus = corpusInput.value.trim();
         const n = parseInt(nValueSlider.value);
         const length = parseInt(outputLengthSlider.value);
+        const seedPhrase = seedPhraseInput.value.trim();
 
         if (!corpus) {
             outputBox.innerHTML = '<p style="color: #ef4444;">Please provide a text corpus first!</p>';
@@ -33,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Slight delay to allow UI to update
         setTimeout(() => {
             try {
-                const generatedText = generateNGramText(corpus, n, length);
+                const generatedText = generateNGramText(corpus, n, length, seedPhrase);
                 if (generatedText) {
                     outputBox.innerHTML = `<p>${generatedText}</p>`;
                 } else {
@@ -49,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 50);
     });
 
-    function generateNGramText(text, n, maxWords) {
+    function generateNGramText(text, n, maxWords, seedPhrase = "") {
         // Simple word tokenization (splitting by whitespace)
         // Keep punctuation attached to words for simpler formatting
         const tokens = text.trim().split(/\s+/);
@@ -74,11 +76,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Generate Text
-        // Pick a random starting point
         const keys = Array.from(nGramMap.keys());
-        let currentHistory = keys[Math.floor(Math.random() * keys.length)];
-        
-        let output = currentHistory.split(' ');
+        let currentHistory = null;
+        let output = [];
+
+        if (seedPhrase) {
+            const seedTokens = seedPhrase.trim().split(/\s+/);
+            
+            // If seed has enough words for a history (n-1)
+            if (seedTokens.length >= n - 1) {
+                const targetHistory = seedTokens.slice(-(n - 1)).join(' ');
+                if (nGramMap.has(targetHistory)) {
+                    currentHistory = targetHistory;
+                    output = [...seedTokens];
+                }
+            }
+            
+            // Try to find a key that starts with the seed phrase
+            if (!currentHistory) {
+                const seedStrLower = seedPhrase.trim().toLowerCase();
+                const matchingKeys = keys.filter(k => k.toLowerCase().startsWith(seedStrLower));
+                
+                if (matchingKeys.length > 0) {
+                    currentHistory = matchingKeys[Math.floor(Math.random() * matchingKeys.length)];
+                    output = currentHistory.split(' ');
+                } else {
+                    // Try to find any key containing the seed phrase
+                    const containingKeys = keys.filter(k => k.toLowerCase().includes(seedStrLower));
+                    if (containingKeys.length > 0) {
+                        currentHistory = containingKeys[Math.floor(Math.random() * containingKeys.length)];
+                        output = currentHistory.split(' ');
+                    }
+                }
+            }
+        }
+
+        // Fallback if no matching seed found or no seed provided
+        if (!currentHistory) {
+            currentHistory = keys[Math.floor(Math.random() * keys.length)];
+            output = currentHistory.split(' ');
+        }
 
         for (let i = 0; i < maxWords - (n - 1); i++) {
             const possibleNextWords = nGramMap.get(currentHistory);

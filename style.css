@@ -181,6 +181,24 @@ textarea:focus {
     transform: scale(1.2);
 }
 
+.text-input {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.text-input:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+}
+
 .btn-primary {
     width: 100%;
     padding: 16px;
