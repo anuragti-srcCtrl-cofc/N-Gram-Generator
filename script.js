@@ -131,10 +131,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const wordsToGenerate = Math.max(0, maxWords - output.length);
         
         for (let i = 0; i < wordsToGenerate; i++) {
-            const possibleNextWords = nGramMap.get(currentHistory);
+            let possibleNextWords = nGramMap.get(currentHistory);
             
+            // If we hit a dead end, jump to a random history to keep generating
             if (!possibleNextWords || possibleNextWords.length === 0) {
-                break; // Dead end
+                currentHistory = keys[Math.floor(Math.random() * keys.length)];
+                possibleNextWords = nGramMap.get(currentHistory);
+                
+                if (!possibleNextWords || possibleNextWords.length === 0) {
+                    break; // Failsafe, should only happen if corpus is completely ungeneratable
+                }
             }
 
             // Pick a random next word
