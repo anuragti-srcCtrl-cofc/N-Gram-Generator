@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>N-Gram Text Predictor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main class="container">
+        <header>
+            <h1>N-Gram Predictor</h1>
+            <p>Generate new text based on the patterns of your input corpus.</p>
+        </header>
+
+        <section class="input-section">
+            <div class="form-group">
+                <label for="corpus">Text Corpus</label>
+                <textarea id="corpus" placeholder="Paste your training text here... For best results, paste a large amount of text."></textarea>
+            </div>
+
+            <div class="controls-row">
+                <div class="form-group slider-group">
+                    <label for="n-value">N-Gram Size (N): <span id="n-value-display">3</span></label>
+                    <input type="range" id="n-value" min="3" max="15" value="3" class="slider">
+                </div>
+
+                <div class="form-group slider-group">
+                    <label for="output-length">Output Length (Words): <span id="length-display">150</span></label>
+                    <input type="range" id="output-length" min="10" max="500" value="150" class="slider">
+                </div>
+            </div>
+
+            <button id="generate-btn" class="btn-primary">Generate Text</button>
+        </section>
+
+        <section class="output-section">
+            <h2>Generated Output</h2>
+            <div id="output-box" class="output-box">
+                <p class="placeholder-text">Your generated text will appear here...</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
