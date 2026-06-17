@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const nValueDisplay = document.getElementById('n-value-display');
     const outputLengthSlider = document.getElementById('output-length');
     const lengthDisplay = document.getElementById('length-display');
+    const creativitySlider = document.getElementById('creativity');
+    const creativityDisplay = document.getElementById('creativity-display');
     const seedPhraseInput = document.getElementById('seed-phrase');
     const generateBtn = document.getElementById('generate-btn');
     const outputBox = document.getElementById('output-box');
@@ -16,12 +18,17 @@ document.addEventListener('DOMContentLoaded', () => {
     outputLengthSlider.addEventListener('input', (e) => {
         lengthDisplay.textContent = e.target.value;
     });
+    
+    creativitySlider.addEventListener('input', (e) => {
+        creativityDisplay.textContent = e.target.value;
+    });
 
     // Generate Text
     generateBtn.addEventListener('click', () => {
         const corpus = corpusInput.value.trim();
         const n = parseInt(nValueSlider.value);
         const length = parseInt(outputLengthSlider.value);
+        const creativity = parseInt(creativitySlider.value) / 100.0;
         const seedPhrase = seedPhraseInput.value.trim();
 
         if (!corpus) {
@@ -35,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Slight delay to allow UI to update
         setTimeout(() => {
             try {
-                const generatedText = generateNGramText(corpus, n, length, seedPhrase);
+                const generatedText = generateNGramText(corpus, n, length, seedPhrase, creativity);
                 if (generatedText) {
                     outputBox.innerHTML = `<p>${generatedText}</p>`;
                 } else {
@@ -51,18 +58,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 50);
     });
 
-    function generateNGramText(text, n, maxWords, seedPhrase = "") {
-        // Simple word tokenization (splitting by whitespace)
-        // Keep punctuation attached to words for simpler formatting
+    function generateNGramText(text, n, maxWords, seedPhrase = "", creativity = 0.3) {
         const tokens = text.trim().split(/\s+/);
         
         if (tokens.length < n) {
-            return null; // Not enough words
+            return null;
         }
 
         // Build N-Gram Map
-        // Key: string of n-1 words
-        // Value: array of next words
         const nGramMap = new Map();
         
         for (let i = 0; i <= tokens.length - n; i++) {
@@ -75,33 +78,27 @@ document.addEventListener('DOMContentLoaded', () => {
             nGramMap.get(history).push(nextWord);
         }
 
-        // Generate Text
         const keys = Array.from(nGramMap.keys());
         let currentHistory = null;
         let output = [];
 
         if (seedPhrase) {
             const seedTokens = seedPhrase.trim().split(/\s+/);
-            output = [...seedTokens]; // Always ensure the seed phrase is in the output
+            output = [...seedTokens]; 
             
             const seedStrLower = seedPhrase.trim().toLowerCase();
             const lastWordLower = seedTokens[seedTokens.length - 1].toLowerCase();
 
-            // 1. Exact match of the last n-1 words (if seed is long enough)
             if (seedTokens.length >= n - 1) {
                 const targetHistoryLower = seedTokens.slice(-(n - 1)).join(' ').toLowerCase();
                 const exactMatch = keys.find(k => k.toLowerCase() === targetHistoryLower);
-                if (exactMatch) {
-                    currentHistory = exactMatch;
-                }
+                if (exactMatch) currentHistory = exactMatch;
             }
             
-            // 2. Prefix match on any key using the whole seed (if seed is short)
             if (!currentHistory) {
                 const matchingKeys = keys.filter(k => k.toLowerCase().startsWith(seedStrLower));
                 if (matchingKeys.length > 0) {
                     currentHistory = matchingKeys[Math.floor(Math.random() * matchingKeys.length)];
-                    // Append the remainder of the matched history to the output to bridge the gap
                     const keyTokens = currentHistory.split(' ');
                     if (keyTokens.length > seedTokens.length) {
                         output.push(...keyTokens.slice(seedTokens.length));
@@ -109,7 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 3. Substring match: Find any key containing the last word of the seed
             if (!currentHistory) {
                 const matchingKeys = keys.filter(k => k.toLowerCase().includes(lastWordLower));
                 if (matchingKeys.length > 0) {
@@ -118,36 +114,65 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 4. Ultimate fallback: Random history
         if (!currentHistory) {
             currentHistory = keys[Math.floor(Math.random() * keys.length)];
-            // If there was no seed phrase, initialize output with this random history
             if (!seedPhrase) {
                 output = currentHistory.split(' ');
             }
         }
 
-        // Generate remaining words
         const wordsToGenerate = Math.max(0, maxWords - output.length);
         
         for (let i = 0; i < wordsToGenerate; i++) {
             let possibleNextWords = nGramMap.get(currentHistory);
             
-            // If we hit a dead end, jump to a random history to keep generating
+            // ANTI-REGURGITATION: 
+            // If there's only 1 possible next word, it means we are in a deterministic path
+            // exactly copying the text. Based on 'creativity', we randomly do a "Stupid Backoff"
+            // where we drop the oldest word in history to find more branching paths.
+            if (possibleNextWords && possibleNextWords.length === 1 && Math.random() < creativity) {
+                const historyTokens = currentHistory.split(' ');
+                
+                // Try backing off step by step (N-2, N-3, etc)
+                for (let backoff = 1; backoff < historyTokens.length; backoff++) {
+                    const shorterHistory = historyTokens.slice(backoff).join(' ');
+                    
+                    // We only want keys that actually end with our shorter history. 
+                    // This creates a smaller n-gram context!
+                    const matchingKeys = keys.filter(k => {
+                        const kTokens = k.split(' ');
+                        const kSuffix = kTokens.slice(-shorterHistory.split(' ').length).join(' ');
+                        return kSuffix === shorterHistory;
+                    });
+                    
+                    if (matchingKeys.length > 1) {
+                        const branchingWords = [];
+                        for (const k of matchingKeys) {
+                            branchingWords.push(...nGramMap.get(k));
+                        }
+                        
+                        // Only backoff if it actually gives us more choices
+                        if (branchingWords.length > 1) {
+                            possibleNextWords = branchingWords;
+                            break; 
+                        }
+                    }
+                }
+            }
+            
+            // Failsafe for dead end
             if (!possibleNextWords || possibleNextWords.length === 0) {
                 currentHistory = keys[Math.floor(Math.random() * keys.length)];
                 possibleNextWords = nGramMap.get(currentHistory);
                 
                 if (!possibleNextWords || possibleNextWords.length === 0) {
-                    break; // Failsafe, should only happen if corpus is completely ungeneratable
+                    break; 
                 }
             }
 
-            // Pick a random next word
             const nextWord = possibleNextWords[Math.floor(Math.random() * possibleNextWords.length)];
             output.push(nextWord);
 
-            // Update history
             const historyTokens = currentHistory.split(' ');
             historyTokens.shift();
             historyTokens.push(nextWord);
